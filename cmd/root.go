@@ -27,8 +27,8 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
+	// deployCmd.PersistentFlags().StringP("workdir", "w", ".", "Path to use as working directory")
 	deployCmd.PersistentFlags().StringArrayP("filepaths", "f", []string{}, "paths to docker compose files used for production build")
 	deployCmd.MarkFlagRequired("filepaths")
-	deployCmd.AddCommand(deployNow)
-	deployCmd.AddCommand(deployCron)
+	deployCmd.AddCommand(deployNow, deployCron)
 }
