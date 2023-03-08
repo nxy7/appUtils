@@ -32,4 +32,5 @@ func init() {
 	deployCmd.PersistentFlags().StringArrayP("filepaths", "f", []string{}, "paths to docker compose files used for production build")
 	deployCmd.MarkFlagRequired("filepaths")
 	deployCmd.AddCommand(deployNow, deployCron)
+	deployNow.Flags().Bool("force", false, "Force Redeployment of the app")
 }

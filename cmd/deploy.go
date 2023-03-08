@@ -19,7 +19,11 @@ var deployNow = &cobra.Command{
 	Use:   "now",
 	Short: "Check if there are any changes to repo and redeploy the app",
 	Run: func(cmd *cobra.Command, args []string) {
-		deployWrapper(cmd, args)
+		force, err := cmd.Flags().GetBool("force")
+		if err != nil {
+			panic(err)
+		}
+		deployWrapper(cmd, args, force)
 	},
 }
 var deployCron = &cobra.Command{
@@ -28,23 +32,23 @@ var deployCron = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		c := cron.New()
 		c.AddFunc("0 0 * * *", func() {
-			deployWrapper(cmd, args)
+			deployWrapper(cmd, args, false)
 		})
 		c.Run()
 	},
 }
 
-func deployWrapper(cmd *cobra.Command, args []string) {
+func deployWrapper(cmd *cobra.Command, args []string, force bool) {
 	filepaths, err := cmd.Flags().GetStringArray("filepaths")
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	deploy(".", filepaths)
+	deploy(".", filepaths, force)
 
 }
 
-func deploy(workdir string, composePaths []string) {
+func deploy(workdir string, composePaths []string, force bool) {
 	gitFetch := exec.Command("git", "fetch")
 	gitFetch.Dir = workdir
 	err := gitFetch.Run()
@@ -59,30 +63,37 @@ func deploy(workdir string, composePaths []string) {
 		panic(err)
 	}
 	stringified := string(gitOut)
-	if strings.Contains(stringified, "branch is up to date") {
+	if strings.Contains(stringified, "branch is up to date") && !force {
 		log.Println("No changes")
 	} else {
 		log.Println("Not in sync, pulling changes")
 		gitPull := exec.Command("git", "pull")
 		gitPull.Dir = workdir
-		gitPullOut, err := gitPull.Output()
+		_, err := gitPull.Output()
 		if err != nil {
 			panic(err)
 		}
-		log.Println(string(gitPullOut))
 
-		composePathsString := ""
-		for _, s := range composePaths {
-			composePathsString += "-f " + s + " "
+		composeArgs := []string{
+			"compose",
 		}
-		composePathsString = strings.TrimSpace(composePathsString)
-		composeUp := exec.Command("docker", "compose", composePathsString, "up", "-d", "--build", "--remove-orphans")
+		for _, s := range composePaths {
+			composeArgs = append(composeArgs, "-f", s)
+		}
+		composeArgs = append(composeArgs, "up", "-d", "--build", "--remove-orphans")
+		if force {
+			composeArgs = append(composeArgs, "--force-recreate")
+		}
+
+		composeUp := exec.Command("docker", composeArgs...)
 		composeUp.Stdout = os.Stdout
 		log.Println("Args: ", composeUp.Args)
 		composeUp.Dir = workdir
-		err = composeUp.Start()
+		err = composeUp.Run()
 		if err != nil {
 			panic(err)
+		} else {
+			log.Println("App deployed")
 		}
 
 	}
