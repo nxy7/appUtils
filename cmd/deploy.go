@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -12,21 +13,18 @@ import (
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Command used to deploy applications using docker compose files",
-	Long:  ``,
 }
 
 var deployNow = &cobra.Command{
 	Use:   "now",
 	Short: "Check if there are any changes to repo and redeploy the app",
-	Long:  `All software has versions. This is Hugo's`,
 	Run: func(cmd *cobra.Command, args []string) {
 		deployWrapper(cmd, args)
 	},
 }
 var deployCron = &cobra.Command{
 	Use:   "cron",
-	Short: "Continous Delivery with cron, that works by checking git repo status at interval",
-	Long:  `All software has versions. This is Hugo's`,
+	Short: "Continous Delivery with cron. It works by checking git repo status at interval",
 	Run: func(cmd *cobra.Command, args []string) {
 		c := cron.New()
 		c.AddFunc("0 0 * * *", func() {
@@ -75,15 +73,17 @@ func deploy(workdir string, composePaths []string) {
 
 		composePathsString := ""
 		for _, s := range composePaths {
-			composePathsString += "-f " + s
+			composePathsString += "-f " + s + " "
 		}
-		composeUp := exec.Command("docker compose", composePathsString, "-d --remove-orphans")
+		composePathsString = strings.TrimSpace(composePathsString)
+		composeUp := exec.Command("docker", "compose", composePathsString, "up", "-d", "--build", "--remove-orphans")
+		composeUp.Stdout = os.Stdout
+		log.Println("Args: ", composeUp.Args)
 		composeUp.Dir = workdir
-		out, err := composeUp.Output()
+		err = composeUp.Start()
 		if err != nil {
 			panic(err)
 		}
-		log.Println(string(out))
 
 	}
 }

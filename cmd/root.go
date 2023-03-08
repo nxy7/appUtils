@@ -13,7 +13,8 @@ var rootCmd = &cobra.Command{
 	Use:   "apputils",
 	Short: "Utility 'scripts' helpful for range of applications",
 	Long: `Utility 'scripts' made to automate application deployment on server
-		and creating cicd pipelines`,
+		and creating cicd pipelines. It requires git, docker and 'docker compose' commands to be
+		available on the system`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
