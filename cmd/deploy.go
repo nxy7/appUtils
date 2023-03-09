@@ -27,8 +27,13 @@ var deployCron = &cobra.Command{
 	Use:   "cron",
 	Short: "Continous Delivery with cron. It works by checking git repo status at interval",
 	Run: func(cmd *cobra.Command, args []string) {
+		cronFormat, err := cmd.Flags().GetString("cron")
+		if err != nil {
+			panic(err)
+		}
+		log.Println("Using the following cron: ", cronFormat)
 		c := cron.New()
-		c.AddFunc("0 0 * * *", func() {
+		c.AddFunc(cronFormat, func() {
 			deploy(cmd)
 		})
 		c.Run()

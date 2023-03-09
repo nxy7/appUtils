@@ -38,5 +38,6 @@ func init() {
 		apputils will use 'project-name' postfixed with _test as project name for tests, to avoid clashing names.`)
 	deployCmd.MarkFlagRequired("filepaths")
 	deployCmd.AddCommand(deployNow, deployCron, testCmd)
+	deployCron.PersistentFlags().StringP("cron", "c", "30 3 * * *", "Deploy interval in cron format, defaults to 30 3 * * *")
 	deployNow.Flags().Bool("force", false, "Force Redeployment of the app")
 }
