@@ -29,8 +29,14 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(deployCmd)
 	// deployCmd.PersistentFlags().StringP("workdir", "w", ".", "Path to use as working directory")
-	deployCmd.PersistentFlags().StringArrayP("filepaths", "f", []string{}, "paths to docker compose files used for production build")
+	deployCmd.PersistentFlags().StringArrayP("filepaths", "f", []string{}, "Paths to docker compose files used for production build.")
+	deployCmd.PersistentFlags().StringP("workdir", "w", ".", "Workdir that the command should be ran in.")
+	deployCmd.PersistentFlags().StringArrayP("testfile", "t", []string{}, `Paths to docker compose files used for testing. If present,
+		apputils will first test against those files. Using 'name' propety in compose files is highly recommended, so testing doesn't interfere
+		with current app deployments.`)
+	deployCmd.PersistentFlags().String("project-name", "", `Project name to use with docker compose command. If supplied and testfiles are present
+		apputils will use 'project-name' postfixed with _test as project name for tests, to avoid clashing names.`)
 	deployCmd.MarkFlagRequired("filepaths")
-	deployCmd.AddCommand(deployNow, deployCron)
+	deployCmd.AddCommand(deployNow, deployCron, testCmd)
 	deployNow.Flags().Bool("force", false, "Force Redeployment of the app")
 }

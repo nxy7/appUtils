@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -19,11 +20,7 @@ var deployNow = &cobra.Command{
 	Use:   "now",
 	Short: "Check if there are any changes to repo and redeploy the app",
 	Run: func(cmd *cobra.Command, args []string) {
-		force, err := cmd.Flags().GetBool("force")
-		if err != nil {
-			panic(err)
-		}
-		deployWrapper(cmd, args, force)
+		deploy(cmd)
 	},
 }
 var deployCron = &cobra.Command{
@@ -32,23 +29,77 @@ var deployCron = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		c := cron.New()
 		c.AddFunc("0 0 * * *", func() {
-			deployWrapper(cmd, args, false)
+			deploy(cmd)
 		})
 		c.Run()
 	},
 }
 
-func deployWrapper(cmd *cobra.Command, args []string, force bool) {
-	filepaths, err := cmd.Flags().GetStringArray("filepaths")
+func deploy(cmd *cobra.Command) error {
+	composePaths, err := cmd.Flags().GetStringArray("filepaths")
 	if err != nil {
-		log.Println(err)
-		return
+		panic(err)
 	}
-	deploy(".", filepaths, force)
+	testPaths, err := cmd.Flags().GetStringArray("testfile")
+	if err != nil {
+		panic(err)
+	}
+	force, err := cmd.Flags().GetBool("force")
+	if err != nil {
+		panic(err)
+	}
+	projectName, err := cmd.Flags().GetString("project-name")
+	if err != nil {
+		panic(err)
+	}
+	workdir, err := cmd.Flags().GetString("project-name")
+	if err != nil {
+		panic(err)
+	}
 
+	if isBranchUpToDate(workdir) && !force {
+		log.Println("No changes")
+		return nil
+	}
+
+	log.Println("Not in sync, pulling changes")
+	gitPullChanges(workdir)
+
+	if len(testPaths) > 0 {
+		if !test(cmd) {
+			return fmt.Errorf("App didn't pass tests")
+		}
+	}
+
+	composeArgs := []string{
+		"compose",
+	}
+	for _, s := range composePaths {
+		composeArgs = append(composeArgs, "-f", s)
+	}
+	if projectName != "" {
+		composeArgs = append(composeArgs, "--project-name", projectName)
+	}
+	composeArgs = append(composeArgs, "up", "-d", "--build", "--remove-orphans")
+	if force {
+		composeArgs = append(composeArgs, "--force-recreate")
+	}
+
+	composeUp := exec.Command("docker", composeArgs...)
+	composeUp.Stdout = os.Stdout
+	log.Println("Args: ", composeUp.Args)
+	composeUp.Dir = workdir
+	err = composeUp.Run()
+	if err != nil {
+		panic(err)
+	} else {
+		log.Println("App deployed")
+	}
+	return nil
 }
 
-func deploy(workdir string, composePaths []string, force bool) {
+func isBranchUpToDate(workdir string) bool {
+
 	gitFetch := exec.Command("git", "fetch")
 	gitFetch.Dir = workdir
 	err := gitFetch.Run()
@@ -63,38 +114,18 @@ func deploy(workdir string, composePaths []string, force bool) {
 		panic(err)
 	}
 	stringified := string(gitOut)
-	if strings.Contains(stringified, "branch is up to date") && !force {
-		log.Println("No changes")
-	} else {
-		log.Println("Not in sync, pulling changes")
-		gitPull := exec.Command("git", "pull")
-		gitPull.Dir = workdir
-		_, err := gitPull.Output()
-		if err != nil {
-			panic(err)
-		}
 
-		composeArgs := []string{
-			"compose",
-		}
-		for _, s := range composePaths {
-			composeArgs = append(composeArgs, "-f", s)
-		}
-		composeArgs = append(composeArgs, "up", "-d", "--build", "--remove-orphans")
-		if force {
-			composeArgs = append(composeArgs, "--force-recreate")
-		}
+	if strings.Contains(stringified, "branch is up to date") {
+		return true
+	}
+	return false
+}
 
-		composeUp := exec.Command("docker", composeArgs...)
-		composeUp.Stdout = os.Stdout
-		log.Println("Args: ", composeUp.Args)
-		composeUp.Dir = workdir
-		err = composeUp.Run()
-		if err != nil {
-			panic(err)
-		} else {
-			log.Println("App deployed")
-		}
-
+func gitPullChanges(workdir string) {
+	gitPull := exec.Command("git", "pull")
+	gitPull.Dir = workdir
+	_, err := gitPull.Output()
+	if err != nil {
+		panic(err)
 	}
 }
